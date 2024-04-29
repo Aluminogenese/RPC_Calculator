@@ -1,0 +1,200 @@
+#include "exterior_elements.h"
+
+ExteriorElements::ExteriorElements(const std::string& attDataPath, const std::string& gpsDataPath, const std::string& imgTimePath) {
+    load_imageTime(imgTimePath, image_time);
+    load_gpsData(gpsDataPath, gps_data);
+    load_attData(attDataPath, att_data);
+    //transformed_time = transform_time(imageTime);
+
+    if (image_time.empty() || gps_data.empty() || att_data.empty()) {
+        std::cout << "Error reading external orientation data." << std::endl;
+    }
+    else {
+        att_interpolate(image_time, att_data, att);
+        gps_interpolate(image_time, gps_data, gps);
+    }
+}
+
+void ExteriorElements::load_imageTime(const std::string& fileName, std::vector<std::tuple<int, double, double>>& imageTime) {
+    std::ifstream file(fileName);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << fileName << std::endl;
+    }
+    std::string line;
+    std::getline(file, line);// ¶ÁÈ¡Ê×ÐÐ
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        int RelLine;
+        double Time, deltaTime;
+        if (!(iss >> RelLine >> Time >> deltaTime)) {
+            std::cerr << "Error parsing line:" << line << std::endl;
+            continue;
+        }
+        imageTime.push_back(std::make_tuple(RelLine, Time, deltaTime));
+    }
+    file.close();
+}
+
+void ExteriorElements::load_gpsData(const std::string& fileName, std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData) {
+    std::ifstream file(fileName);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file." << std::endl;
+    }
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.find("gpsData_") != std::string::npos) {
+            double timeCode, PX, PY, PZ, VX, VY, VZ;
+            std::string dateTime;
+
+            while (std::getline(file, line) && line.find("}") == std::string::npos) {
+                if (line.find("timeCode") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> timeCode;
+                }
+                else if (line.find("dateTime") != std::string::npos) {
+                    dateTime = line.substr(line.find("=") + 2, line.size() - 3 - line.find("="));
+                }
+                else if (line.find("PX") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> PX;
+                }
+                else if (line.find("PY") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> PY;
+                }
+                else if (line.find("PZ") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> PZ;
+                }
+                else if (line.find("VX") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> VX;
+                }
+                else if (line.find("VY") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> VY;
+                }
+                else if (line.find("VZ") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> VZ;
+                }
+            }
+
+            gpsData.push_back(std::make_tuple(timeCode, dateTime, PX, PY, PZ, VX, VY, VZ));
+        }
+    }
+    file.close();
+}
+
+void ExteriorElements::load_attData(const std::string& fileName, std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData) {
+    std::ifstream file(fileName);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file." << std::endl;
+    }
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.find("attData_") != std::string::npos) {
+            double timeCode, eulor1, eulor2, eulor3, roll_velocity, pitch_velocity, yaw_velocity, q1, q2, q3, q4;
+            std::string dateTime;
+
+            while (std::getline(file, line) && line.find("}") == std::string::npos) {
+                if (line.find("timeCode") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> timeCode;
+                }
+                else if (line.find("dateTime") != std::string::npos) {
+                    dateTime = line.substr(line.find("=") + 2, line.size() - 3 - line.find("="));
+                }
+                else if (line.find("eulor1") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> eulor1;
+                }
+                else if (line.find("eulor2") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> eulor2;
+                }
+                else if (line.find("eulor3") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> eulor3;
+                }
+                else if (line.find("roll_velocity") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> roll_velocity;
+                }
+                else if (line.find("roll_velocity") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> pitch_velocity;
+                }
+                else if (line.find("roll_velocity") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> yaw_velocity;
+                }
+                else if (line.find("q1") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> q1;
+                }
+                else if (line.find("q2") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> q2;
+                }
+                else if (line.find("q3") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> q3;
+                }
+                else if (line.find("q4") != std::string::npos) {
+                    std::istringstream iss(line.substr(line.find("=") + 1));
+                    iss >> q4;
+                }
+            }
+            attData.push_back(std::make_tuple(timeCode, dateTime, eulor1, eulor2, eulor3, roll_velocity, pitch_velocity, yaw_velocity, q1, q2, q3, q4));
+        }
+    }
+    file.close();
+}
+
+void ExteriorElements::transform_time(const std::vector<std::tuple<int, double, double>>& imageTime, std::vector<double>& transformedTime) {
+
+}
+
+void ExteriorElements::att_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData, std::vector<std::tuple<double, double, double, double>>& att) {
+    double deltaTime = std::get<0>(attData[1]) - std::get<0>(attData[1]);
+    double t_attStart = std::get<0>(attData[0]);
+    for (const auto& image_time : imageTime) {
+        double t = std::get<0>(image_time);
+        int index = std::floor((t - t_attStart) / deltaTime);
+        double t0 = std::get<0>(attData[index]);
+        double t1 = std::get<0>(attData[index + 1]);
+        Eigen::Vector4d q0(std::get<8>(attData[index]), std::get<9>(attData[index]), std::get<10>(attData[index]), std::get<11>(attData[index]));
+        Eigen::Vector4d q1(std::get<8>(attData[index + 1]), std::get<9>(attData[index + 1]), std::get<10>(attData[index + 1]), std::get<11>(attData[index + 1]));
+        double theta = acos(q0.dot(q1));
+        double eta0 = sin(theta * (t1 - t) / (t1 - t0)) / sin(theta);
+        double eta1 = sin(theta * (t - t0) / (t1 - t0)) / sin(theta);
+        Eigen::Vector4d qt = eta0 * q0 + eta1 * q1;
+        att.push_back(std::make_tuple(qt[0], qt[1], qt[2], qt[3]));
+    }
+}
+
+void ExteriorElements::gps_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData, std::vector<std::tuple<double, double, double, double, double, double>>& gps) {
+    double deltaTime = std::get<0>(gpsData[1]) - std::get<0>(gpsData[0]);
+    double t_gpsStart = std::get<0>(gpsData[0]);
+    for (const auto& image_time : imageTime) {
+        double t = std::get<0>(image_time);
+        int index = std::floor((t - t_gpsStart) / deltaTime);
+        Eigen::Vector3d Pt = Eigen::Vector3d::Zero();
+        Eigen::Vector3d Vt = Eigen::Vector3d::Zero();
+        for (int i = 0; i < 9; i++) {
+            Eigen::Vector3d Pi(std::get<2>(gpsData[index + i - 4]), std::get<3>(gpsData[index + i - 4]), std::get<4>(gpsData[index + i - 4]));
+            Eigen::Vector3d Vi(std::get<5>(gpsData[index + i - 4]), std::get<6>(gpsData[index + i - 4]), std::get<7>(gpsData[index + i - 4]));
+            double tj = std::get<0>(gpsData[index + i - 4]);
+            for (int j = 0; j < 9; j++) {
+                if (j != i) {
+                    Pi *= (t - std::get<0>(gpsData[index + j - 4])) / (tj - std::get<0>(gpsData[index + j - 4]));
+                    Vi *= (t - std::get<0>(gpsData[index + j - 4])) / (tj - std::get<0>(gpsData[index + j - 4]));
+                }
+            }
+            Pt += Pi;
+            Vt += Vi;
+        }
+        gps.push_back(std::make_tuple(Pt[0], Pt[1], Pt[2], Vt[0], Vt[1], Vt[2]));
+    }
+}
