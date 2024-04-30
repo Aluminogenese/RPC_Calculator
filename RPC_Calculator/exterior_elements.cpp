@@ -1,6 +1,13 @@
 #include "exterior_elements.h"
-
+#include <iomanip>
 ExteriorElements::ExteriorElements(const std::string& attDataPath, const std::string& gpsDataPath, const std::string& imgTimePath) {
+    // 存放读入的时间标签文件 RelLine Time deltaTime
+    std::vector<std::tuple<int, double, double>> image_time;
+    // 存放读入的gps数据文件 timeCode dateTime PX PY PZ VX VY VZ
+    std::vector<std::tuple<double, std::string, double, double, double, double, double, double>> gps_data;
+    // 存放读入的姿态数据文件 timeCode dateTime roll pitch yaw roll_velocity pitch_velocity yaw_velocity q1 q2 q3 q4 
+    std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>> att_data;
+
     load_imageTime(imgTimePath, image_time);
     load_gpsData(gpsDataPath, gps_data);
     load_attData(attDataPath, att_data);
@@ -10,8 +17,8 @@ ExteriorElements::ExteriorElements(const std::string& attDataPath, const std::st
         std::cout << "Error reading external orientation data." << std::endl;
     }
     else {
-        att_interpolate(image_time, att_data, att);
-        gps_interpolate(image_time, gps_data, gps);
+        att_interpolate(image_time, att_data);
+        gps_interpolate(image_time, gps_data);
     }
 }
 
@@ -156,11 +163,11 @@ void ExteriorElements::transform_time(const std::vector<std::tuple<int, double, 
 
 }
 
-void ExteriorElements::att_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData, std::vector<std::tuple<double, double, double, double>>& att) {
-    double deltaTime = std::get<0>(attData[1]) - std::get<0>(attData[1]);
+void ExteriorElements::att_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData) {
+    double deltaTime = std::get<0>(attData[1]) - std::get<0>(attData[0]);
     double t_attStart = std::get<0>(attData[0]);
     for (const auto& image_time : imageTime) {
-        double t = std::get<0>(image_time);
+        double t = std::get<1>(image_time);
         int index = std::floor((t - t_attStart) / deltaTime);
         double t0 = std::get<0>(attData[index]);
         double t1 = std::get<0>(attData[index + 1]);
@@ -170,31 +177,27 @@ void ExteriorElements::att_interpolate(const std::vector<std::tuple<int, double,
         double eta0 = sin(theta * (t1 - t) / (t1 - t0)) / sin(theta);
         double eta1 = sin(theta * (t - t0) / (t1 - t0)) / sin(theta);
         Eigen::Vector4d qt = eta0 * q0 + eta1 * q1;
-        att.push_back(std::make_tuple(qt[0], qt[1], qt[2], qt[3]));
+        att.push_back(qt);
     }
 }
 
-void ExteriorElements::gps_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData, std::vector<std::tuple<double, double, double, double, double, double>>& gps) {
+void ExteriorElements::gps_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData) {
     double deltaTime = std::get<0>(gpsData[1]) - std::get<0>(gpsData[0]);
     double t_gpsStart = std::get<0>(gpsData[0]);
     for (const auto& image_time : imageTime) {
-        double t = std::get<0>(image_time);
+        double t = std::get<1>(image_time);
         int index = std::floor((t - t_gpsStart) / deltaTime);
         Eigen::Vector3d Pt = Eigen::Vector3d::Zero();
-        Eigen::Vector3d Vt = Eigen::Vector3d::Zero();
         for (int i = 0; i < 9; i++) {
             Eigen::Vector3d Pi(std::get<2>(gpsData[index + i - 4]), std::get<3>(gpsData[index + i - 4]), std::get<4>(gpsData[index + i - 4]));
-            Eigen::Vector3d Vi(std::get<5>(gpsData[index + i - 4]), std::get<6>(gpsData[index + i - 4]), std::get<7>(gpsData[index + i - 4]));
             double tj = std::get<0>(gpsData[index + i - 4]);
             for (int j = 0; j < 9; j++) {
                 if (j != i) {
                     Pi *= (t - std::get<0>(gpsData[index + j - 4])) / (tj - std::get<0>(gpsData[index + j - 4]));
-                    Vi *= (t - std::get<0>(gpsData[index + j - 4])) / (tj - std::get<0>(gpsData[index + j - 4]));
                 }
             }
             Pt += Pi;
-            Vt += Vi;
         }
-        gps.push_back(std::make_tuple(Pt[0], Pt[1], Pt[2], Vt[0], Vt[1], Vt[2]));
+        gps.push_back(Pt);
     }
 }

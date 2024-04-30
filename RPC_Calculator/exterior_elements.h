@@ -20,16 +20,14 @@ public:
 
     void transform_time(const std::vector<std::tuple<int, double, double>>& imageTime, std::vector<double>& transformedTime);
 
-    void att_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData, std::vector<std::tuple<double, double, double, double>>& att);
+    void att_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData);
 
-    void gps_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData, std::vector<std::tuple<double, double, double, double, double, double>>& gps);
-
-    std::vector<std::tuple<int, double, double>> image_time;
-    std::vector<std::tuple<double, std::string, double, double, double, double, double, double>> gps_data;
-    std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>> att_data;
+    void gps_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData);
 
     std::vector<double> transformed_time;
-    std::vector<std::tuple<double,double,double,double>> att;
-    std::vector<std::tuple<double, double, double, double, double, double>> gps;
+    // 成像时刻姿态 q1 q2 q3 q4
+    std::vector<Eigen::Vector4d> att;
+    // 成像时刻位置 PX PY PZ
+    std::vector<Eigen::Vector3d> gps;
 };
 
