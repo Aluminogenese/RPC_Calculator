@@ -22,10 +22,10 @@ ExteriorElements::ExteriorElements(const std::string& attDataPath, const std::st
     }
 }
 
-void ExteriorElements::load_imageTime(const std::string& fileName, std::vector<std::tuple<int, double, double>>& imageTime) {
-    std::ifstream file(fileName);
+void ExteriorElements::load_imageTime(const std::string& filePath, std::vector<std::tuple<int, double, double>>& imageTime) {
+    std::ifstream file(filePath);
     if (!file.is_open()) {
-        std::cerr << "Error opening file: " << fileName << std::endl;
+        std::cerr << "Error opening file: " << filePath << std::endl;
     }
     std::string line;
     std::getline(file, line);// ¶ÁÈ¡Ê×ÐÐ
@@ -42,8 +42,8 @@ void ExteriorElements::load_imageTime(const std::string& fileName, std::vector<s
     file.close();
 }
 
-void ExteriorElements::load_gpsData(const std::string& fileName, std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData) {
-    std::ifstream file(fileName);
+void ExteriorElements::load_gpsData(const std::string& filePath, std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData) {
+    std::ifstream file(filePath);
     if (!file.is_open()) {
         std::cerr << "Error opening file." << std::endl;
     }
@@ -93,8 +93,8 @@ void ExteriorElements::load_gpsData(const std::string& fileName, std::vector<std
     file.close();
 }
 
-void ExteriorElements::load_attData(const std::string& fileName, std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData) {
-    std::ifstream file(fileName);
+void ExteriorElements::load_attData(const std::string& filePath, std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData) {
+    std::ifstream file(filePath);
     if (!file.is_open()) {
         std::cerr << "Error opening file." << std::endl;
     }
@@ -159,9 +159,9 @@ void ExteriorElements::load_attData(const std::string& fileName, std::vector<std
     file.close();
 }
 
-void ExteriorElements::transform_time(const std::vector<std::tuple<int, double, double>>& imageTime, std::vector<double>& transformedTime) {
-
-}
+//void ExteriorElements::transform_time(const std::vector<std::tuple<int, double, double>>& imageTime, std::vector<double>& transformedTime) {
+//
+//}
 
 void ExteriorElements::att_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData) {
     double deltaTime = std::get<0>(attData[1]) - std::get<0>(attData[0]);

@@ -27,41 +27,47 @@ int main() {
 	std::string Rj2w_path = "../data/rot.txt";
 	Rotation rotation_hanler(Ru_path, direct_path, Rj2w_path, ex_element.att);
 
-	std::ofstream b2j_file("../inter_result/b2j.txt");
-	for (const auto& b2j : rotation_hanler.R_b2j) {
-		b2j_file << b2j << "\n";
-	}
-	b2j_file.close();
-	std::ofstream j2w_file("../inter_result/j2w.txt");
-	for (const auto& j2w : rotation_hanler.R_j2w) {
-		j2w_file << j2w << "\n";
-	}
-	j2w_file.close();
-	std::ofstream ux_file("../inter_result/ux.txt");
-	for (const auto& ux_ : rotation_hanler.ux) {
-		ux_file << ux_ << "\n";
-	}
-	ux_file.close();
+	//std::ofstream b2j_file("../inter_result/b2j.txt");
+	//for (const auto& b2j : rotation_hanler.R_b2j) {
+	//	b2j_file << b2j << "\n";
+	//}
+	//b2j_file.close();
+	//std::ofstream j2w_file("../inter_result/j2w.txt");
+	//for (const auto& j2w : rotation_hanler.R_j2w) {
+	//	j2w_file << j2w << "\n";
+	//}
+	//j2w_file.close();
+	//std::ofstream ux_file("../inter_result/ux.txt");
+	//for (const auto& ux_ : rotation_hanler.ux) {
+	//	ux_file << ux_ << "\n";
+	//}
+	//ux_file.close();
+
 	// 像方划分格网
-	std::ofstream img_file("../inter_result/img_points.txt");
 	std::vector<Eigen::Vector2d> image_points;
 	for (int j = 0; j <= ctrl_grid_n; ++j) {
 		for (int i = 0; i <= ctrl_grid_m; ++i) {
 			image_points.push_back(Eigen::Vector2d((img_row - 1) / ctrl_grid_n * j, (img_col - 1) / ctrl_grid_m * i));
-			img_file << (img_row - 1) / ctrl_grid_n * j << " " << (img_col - 1) / ctrl_grid_m * i << "\n";
 		}
 	}
-	img_file.close();
+	// 6层虚拟格网复制6份
 	std::vector<Eigen::Vector2d> extent_image_points;
 	for (int i = 0; i < ctrl_layers; i++) {
 		extent_image_points.insert(extent_image_points.end(), image_points.begin(), image_points.end());
 	}
+
+	//std::ofstream img_file("../inter_result/img_points.txt");
+	//for (const auto& image_point : extent_image_points) {
+	//	img_file << image_point.x() << " " << image_point.y() << "\n";
+	//}
+	//img_file.close();
+	
 	// 物方格网点
 	std::vector<Eigen::Vector3d>ground_points;
 	//#pragma omp parallel for
 	for (int l = 0; l < ctrl_layers; l++) {
 		double z0 = min_height + l * (max_height - min_height) / (ctrl_layers - 1);
-		for (const auto& image_point : extent_image_points) {
+		for (const auto& image_point : image_points) {
 			int i = static_cast<int>(image_point.x());
 			int j = static_cast<int>(image_point.y());
 
@@ -71,22 +77,27 @@ int main() {
 			ground_points.push_back(ground_point);
 		}
 	}
-
+	std::ofstream gcp_file("../inter_result/ground_points.txt");
+	for (const auto& ground_point : ground_points) {
+		double X = ground_point.x(), Y = ground_point.y(), Z = ground_point.z();
+		gcp_file << std::fixed << X << "\t" << Y << "\t" << Z << "\n";
+	}
+	gcp_file.close();
 
 	std::vector<Eigen::Vector3d>ground_points_blh;
-	std::ofstream gcp_file("../inter_result/ground_points.txt");
+	std::ofstream gcpblh_file("../inter_result/ground_points_BLH.txt");
 	rotation_hanler.convert_wgs84_to_geodetic(ground_points, ground_points_blh);
 	for (const auto& ground_point : ground_points_blh) {
 		double lat = ground_point.x(), lon = ground_point.y(), alt = ground_point.z();
-		gcp_file << lat << "\t" << lon << "\t" << alt << "\n";
+		gcpblh_file << std::fixed << lat << "\t" << lon << "\t" << alt << "\n";
 	}
-	gcp_file.close();
+	gcpblh_file.close();
 
 	ClassRPC rpc;
 	std::vector<Eigen::Vector2d> image_barycentric;
 	std::vector<Eigen::Vector3d> ground_barycentric;
 
-	rpc.barycentric(image_points, ground_points_blh, image_barycentric, ground_barycentric);
+	rpc.barycentric(extent_image_points, ground_points_blh, image_barycentric, ground_barycentric);
 	rpc.calculate_RPC(image_barycentric, ground_barycentric);
 	rpc.save_RPCs("../inter_result/result.txt");
 	return 0;

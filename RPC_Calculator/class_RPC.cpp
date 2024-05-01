@@ -3,7 +3,7 @@
 void ClassRPC::barycentric(const std::vector<Eigen::Vector2d>& image_points, const std::vector<Eigen::Vector3d>& control_points, std::vector<Eigen::Vector2d>& image_barycentric, std::vector<Eigen::Vector3d>& control_barycentric)
 {
 	double max_x = 0., max_y = 0., max_X = 0., max_Y = 0., max_Z = 0.;
-	double min_x = 0., min_y = 0., min_X = 0., min_Y = 0., min_Z = 0.;
+	double min_x = image_points[0].x(), min_y = image_points[0].y(), min_X = control_points[0].x(), min_Y = control_points[0].y(), min_Z = control_points[0].z();
 	for (int i = 0; i < image_points.size(); i++) {
 		image_centroid += image_points[i];
 		control_centroid += control_points[i];
@@ -20,11 +20,13 @@ void ClassRPC::barycentric(const std::vector<Eigen::Vector2d>& image_points, con
 		min_Y = std::min(min_Y, control_points[i].y());
 		min_Z = std::min(min_Z, control_points[i].z());
 	}
+	// 标准化平移参数
 	image_centroid /= image_points.size();
 	control_centroid /= control_points.size();
-
+	// 标准化比例参数
 	image_scale.x() = std::max(std::abs(max_x - image_centroid.x()), std::abs(min_x - image_centroid.x()));
-	image_scale.y() = std::max(std::abs(max_y - image_centroid.y()), std::abs(min_x - image_centroid.y()));
+	image_scale.y() = std::max(std::abs(max_y - image_centroid.y()), std::abs(min_y - image_centroid.y()));
+
 	control_scale.x() = std::max(std::abs(max_X - control_centroid.x()), std::abs(min_X - control_centroid.x()));
 	control_scale.y() = std::max(std::abs(max_Y - control_centroid.y()), std::abs(min_Y - control_centroid.y()));
 	control_scale.z() = std::max(std::abs(max_Z - control_centroid.z()), std::abs(min_Z - control_centroid.z()));
@@ -41,18 +43,19 @@ void ClassRPC::barycentric(const std::vector<Eigen::Vector2d>& image_points, con
 
 void ClassRPC::calculate_RPC(const std::vector<Eigen::Vector2d>& image_points, const std::vector<Eigen::Vector3d>& control_points)
 {
-	for (int iter = 0; iter < 50; iter++) {
+	//for (int iter = 0; iter < 5; iter++) {
 		int num = image_points.size();
-		Eigen::VectorXd R(num * 2);
+		Eigen::VectorXd G(num * 2);
 		Eigen::MatrixXd M(num, 39), N(num, 39);
 		Eigen::MatrixXd W_r = Eigen::MatrixXd::Zero(num, num), W_c = Eigen::MatrixXd::Zero(num, num);
 		for (int i = 0; i < control_points.size(); i++) {
-			R(i) = image_points[i].x();
-			R(i + num) = image_points[i].y();
+			G(i) = image_points[i].x();
+			G(i + num) = image_points[i].y();
 			double X = control_points[i].x();
 			double Y = control_points[i].y();
 			double Z = control_points[i].z();
 			Eigen::VectorXd vec1(20), vec2;
+			//vec1 << 1, Y, X, Z, Y* X, Y* Z, X* Z, Y* Y, X* X, Z* Z, X* Y* Z, Y* Y* Y, Y* X* X, Y* Z* Z, Y* Y* X, X* X* X, X* Z* Z, Y* Y* Z, X* X* Z, Z* Z* Z;
 			vec1 << 1, Z, Y, X, Z* Y, Z* X, Y* X, Z* Z, Y* Y, X* X, Z* Y* X, Z* Z* Y, Z* Z* X, Y* Y* Z, Y* Y* X, Z* X* X, Y* X* X, Z* Z* Z, Y* Y* Y, X* X* X;
 			vec2 = vec1.tail(19);
 
@@ -63,33 +66,37 @@ void ClassRPC::calculate_RPC(const std::vector<Eigen::Vector2d>& image_points, c
 			N.row(i) << vec1.transpose(), -image_points[i].y() * vec2.transpose();
 			W_c(i, i) = 1 / D;
 		}
-		//Eigen::VectorXd J, K;
-		//J << a, b.tail(19);
-		//K << c, d.tail(19);
-		Eigen::MatrixXd A(num * 2, 39 * 2);
-		A.block(0, 0, num, 39) = M;
-		A.block(num, 39, num, 39) = N;
+		// V=WTX-WG
+		Eigen::MatrixXd T(num * 2, 39 * 2);
+		T.block(0, 0, num, 39) = M;
+		T.block(num, 39, num, 39) = N;
 
 		Eigen::MatrixXd W(2 * num, 2 * num);
 		W.block(0, 0, num, num) = W_r;
 		W.block(num, num, num, num) = W_c;
-		//Eigen::VectorXd X;
-		//X << J, K;
 		// ldlt
-		//Eigen::VectorXd X = (A.transpose() * W * W * A).ldlt().solve(A.transpose() * W * W * R);
+		//Eigen::VectorXd X = (T.transpose() * W * W * T).ldlt().solve(T.transpose() * W * W * G);
 		// QR
-		Eigen::MatrixXd linear_coeff(2 * num, 2 * num);
-		linear_coeff = A.transpose() * W * W * A;
-		Eigen::MatrixXd L(2 * num, 1);
-		L = A.transpose() * W * W * R;
-		Eigen::VectorXd X = (linear_coeff).householderQr().solve(L);
+		//Eigen::VectorXd X = (A).householderQr().solve(Y);
+		// 法化
+		//(WT)^T*(WT)
+		Eigen::MatrixXd A = T.transpose() * W * W * T;
+		//(WT)^T*G
+		Eigen::MatrixXd L = T.transpose() * W * W * G;
+
+		Eigen::VectorXd X = A.inverse() * L;
+		Eigen::VectorXd V = W * T * X - W * G;
 		// update
 		a = X.segment(0, 20);
 		b.segment(1, 19) = X.segment(20, 19);
 		c = X.segment(39, 20);
 		d.segment(1, 19) = X.segment(59, 19);
-		if (X.norm() < 1e-6)break;
-	}
+
+	//	if (V.maxCoeff() < 1e-6) {
+	//		std::cout << "iteration: " << iter << std::endl;
+	//		break;
+	//	}
+	//}
 }
 
 void ClassRPC::save_RPCs(const std::string& filePath)

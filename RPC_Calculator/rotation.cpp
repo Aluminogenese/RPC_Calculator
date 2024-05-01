@@ -85,6 +85,7 @@ void Rotation::calculate_Rc2b(const std::string& filePath)
     //R_kappa << cos(yaw), -sin(yaw), 0,
     //    sin(yaw), cos(yaw), 0,
     //    0, 0, 1;
+    
     // ÓÉÅ·À­½Ç¹¹ÔìÐý×ª¾ØÕó
     R_c2b = Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *  Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX()) * Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ());
 }
@@ -149,7 +150,7 @@ bool Rotation::solve_quadratic(const double& a, const double& b, const double& c
 void Rotation::calculate_XYZ(const double& h, const Eigen::Vector3d& gps_XYZ, Eigen::Vector3d& XYZ, const int& i, const int& j)
 {
     const double A = 6378137 + h;
-    const double B = 6356752.3142 + h;
+    const double B = 6356752.3142518 + h;
     Eigen::Vector3d miu_3 = R_j2w[i] * R_b2j[i] * R_c2b * ux[j];
     double a = (miu_3[0] * miu_3[0] + miu_3[1] * miu_3[1]) / (A * A) + miu_3[2] * miu_3[2] / (B * B);
     double b = 2 * ((miu_3[0] * gps_XYZ[0] + miu_3[1] * gps_XYZ[1]) / (A * A) + miu_3[2] * gps_XYZ[2] / (B * B));
@@ -182,7 +183,7 @@ void Rotation::convert_wgs84_to_geodetic(const std::vector<Eigen::Vector3d>& XYZ
         //for (int i = 0; i < 100; i++) {
         //    N = a / sqrt(1 - e2 * sin(B) * sin(B));
         //    H = z / sin(B) - N * (1 - e2);
-
+        //
         //    double Bn = atan2(z * (N + H), ((N * (1 - e2) + H) * sqrt(x * x + y * y)));
         //    B = Bn;
         //    if (Bn < 1e-7) {
@@ -192,6 +193,7 @@ void Rotation::convert_wgs84_to_geodetic(const std::vector<Eigen::Vector3d>& XYZ
         //B = B / M_PI * 180;
         //L = L / M_PI * 180;
         //BLH.push_back(Eigen::Vector3d(B, L, H));
+
         double p = sqrt(x * x + y * y);
         double theta = atan2(z * a, p * b);
 
@@ -206,14 +208,21 @@ void Rotation::convert_wgs84_to_geodetic(const std::vector<Eigen::Vector3d>& XYZ
     }
 }
 
-void Rotation::convert_geodetic_to_wgs84(double lat, double lon, double alt, double& x, double& y, double& z)
+void Rotation::convert_geodetic_to_wgs84(const std::vector<Eigen::Vector3d>& BLH, std::vector<Eigen::Vector3d>& XYZ)
 {
-    double WGS84_A = 6378137.0; // ³¤°ëÖá£¨³àµÀ°ë¾¶£©
-    double WGS84_B = 6356752.3142; // ¶Ì°ëÖá£¨¼«°ë¾¶£©
-    double e2 = 1 - (WGS84_B * WGS84_B) / (WGS84_A * WGS84_A);
-    double N = WGS84_A / sqrt(1 - e2 * pow(sin(lat), 2));
-    x = (N + alt) * cos(lat) * cos(lon);
-    y = (N + alt) * cos(lat) * sin(lon);
-    z = (N * (1 - e2) + alt) * sin(lat);
+    double a = 6378137.0; // ³¤°ëÖá£¨³àµÀ°ë¾¶£©
+    double b = 6356752.3142518; // ¶Ì°ëÖá£¨¼«°ë¾¶£©
+    double e2 = 1 - (b * b) / (a * a);
+    for (const auto& blh : BLH) {
+        double latitude = blh.x();
+        double longitude = blh.y();
+        double altitude = blh.z();
+        double N = a / sqrt(1 - e2 * pow(sin(latitude), 2));
+        Eigen::Vector3d xyz;
+        xyz.x() = (N + altitude) * cos(latitude) * cos(longitude);
+        xyz.y() = (N + altitude) * cos(latitude) * sin(longitude);
+        xyz.z() = (N * (1 - e2) + altitude) * sin(latitude);
+        XYZ.push_back(xyz);
+    }
 }
 
