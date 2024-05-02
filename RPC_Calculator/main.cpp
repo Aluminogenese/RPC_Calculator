@@ -98,6 +98,19 @@ int main() {
 	std::vector<Eigen::Vector3d> ground_barycentric;
 
 	rpc.barycentric(extent_image_points, ground_points_blh, image_barycentric, ground_barycentric);
+
+	std::ofstream image_bary_file("../inter_result/image_barycentric.txt");
+	for (const auto& image_bary : image_barycentric) {
+		double X = image_bary.x(), Y = image_bary.y();
+		image_bary_file << std::fixed << X << "\t" << Y  << "\n";
+	}
+	image_bary_file.close();
+	std::ofstream ground_bary_file("../inter_result/ground_barycentric.txt");
+	for (const auto& ground_bary : ground_barycentric) {
+		double X = ground_bary.x(), Y = ground_bary.y(), Z = ground_bary.z();
+		ground_bary_file << std::fixed << X << "\t" << Y << "\t" << Z << "\n";
+	}
+	ground_bary_file.close();
 	rpc.calculate_RPC(image_barycentric, ground_barycentric);
 	rpc.save_RPCs("../inter_result/result.txt");
 	return 0;

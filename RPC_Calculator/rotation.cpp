@@ -166,62 +166,50 @@ void Rotation::calculate_XYZ(const double& h, const Eigen::Vector3d& gps_XYZ, Ei
 
 void Rotation::convert_wgs84_to_geodetic(const std::vector<Eigen::Vector3d>& XYZ, std::vector<Eigen::Vector3d>& BLH)
 {
+    double epsilon = 1.0E-15;
     double a = 6378137.0; // ³¤°ëÖá£¨³àµÀ°ë¾¶£©
-    double b = 6356752.31424518; // ¶Ì°ëÖá£¨¼«°ë¾¶£©
-    double c = sqrt(((a * a) - (b * b)) / (a * a));
-    double d = sqrt(((a * a) - (b * b)) / (b * b));
+    double f_inverse = 298.257223563; // ±âÂÊµ¹Êý
+    double b = a - a / f_inverse; // ¶Ì°ëÖá£¨¼«°ë¾¶£©
+    double e = sqrt(a * a - b * b) / a;
 
-    double e2 = (a * a - b * b) / (a * a);
     for (const auto& xyz : XYZ) {
         double x = xyz.x();
         double y = xyz.y();
         double z = xyz.z();
 
-        //double L = atan2(y, x);
-        //double B = atan2(z, sqrt(x * x + y * y));
-        //double N, H;
-        //for (int i = 0; i < 100; i++) {
-        //    N = a / sqrt(1 - e2 * sin(B) * sin(B));
-        //    H = z / sin(B) - N * (1 - e2);
-        //
-        //    double Bn = atan2(z * (N + H), ((N * (1 - e2) + H) * sqrt(x * x + y * y)));
-        //    B = Bn;
-        //    if (Bn < 1e-7) {
-        //        break;
-        //    }
-        //}
-        //B = B / M_PI * 180;
-        //L = L / M_PI * 180;
-        //BLH.push_back(Eigen::Vector3d(B, L, H));
-
-        double p = sqrt(x * x + y * y);
-        double theta = atan2(z * a, p * b);
-
-        double longitude = atan2(y, x);
-        double latitude = atan2((z + (d * d) * b * pow(sin(theta), 3)), (p - (c * c) * a * pow(cos(theta), 3)));
-        double N = a / sqrt(1 - ((c * c) * sin(latitude) * sin(latitude)));
-        double altitude = (p / cos(latitude)) - N;
-
-        latitude = latitude / M_PI * 180;
-        longitude = longitude / M_PI * 180;
-        BLH.push_back(Eigen::Vector3d(latitude, longitude, altitude));
+        double current_B = 0.;
+        double N = 0.;
+        double calculate_B = atan2(z, sqrt(x * x + y * y));
+        int count = 0;
+        while (abs(current_B - calculate_B) * 180 / M_PI > epsilon && count < 25) {
+            current_B = calculate_B;
+            N = a / sqrt(1 - e * e * sin(current_B) * sin(current_B));
+            calculate_B = atan2(z + N * e * e * sin(current_B), sqrt(x * x + y * y));
+            count++;
+        }
+        double B = current_B * 180 / M_PI;
+        double L = atan2(y, x) * 180 / M_PI;
+        double H = z / sin(current_B) - N * (1 - e * e);
+        BLH.push_back(Eigen::Vector3d(B, L, H));
     }
 }
 
 void Rotation::convert_geodetic_to_wgs84(const std::vector<Eigen::Vector3d>& BLH, std::vector<Eigen::Vector3d>& XYZ)
 {
     double a = 6378137.0; // ³¤°ëÖá£¨³àµÀ°ë¾¶£©
-    double b = 6356752.3142518; // ¶Ì°ëÖá£¨¼«°ë¾¶£©
-    double e2 = 1 - (b * b) / (a * a);
+    const double f_inverse = 298.257223563;	//±âÂÊµ¹Êý
+    const double b = a - a / f_inverse; // ¶Ì°ëÖá£¨¼«°ë¾¶£©
+
+    double e = sqrt(a * a - b * b) / a;
     for (const auto& blh : BLH) {
         double latitude = blh.x();
         double longitude = blh.y();
         double altitude = blh.z();
-        double N = a / sqrt(1 - e2 * pow(sin(latitude), 2));
+        double N = a / sqrt(1 - e * e * pow(sin(latitude), 2));
         Eigen::Vector3d xyz;
         xyz.x() = (N + altitude) * cos(latitude) * cos(longitude);
         xyz.y() = (N + altitude) * cos(latitude) * sin(longitude);
-        xyz.z() = (N * (1 - e2) + altitude) * sin(latitude);
+        xyz.z() = (N * (1 - e * e) + altitude) * sin(latitude);
         XYZ.push_back(xyz);
     }
 }
