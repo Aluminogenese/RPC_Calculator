@@ -2,6 +2,7 @@
 #include "exterior_elements.h"
 #include "rotation.h"
 #include "class_RPC.h"
+#include "precise_check.h"
 
 int main() {
 	// 参数设定
@@ -77,41 +78,77 @@ int main() {
 			ground_points.push_back(ground_point);
 		}
 	}
-	std::ofstream gcp_file("../inter_result/ground_points.txt");
-	for (const auto& ground_point : ground_points) {
-		double X = ground_point.x(), Y = ground_point.y(), Z = ground_point.z();
-		gcp_file << std::fixed << X << "\t" << Y << "\t" << Z << "\n";
-	}
-	gcp_file.close();
+	//std::ofstream gcp_file("../inter_result/ground_points.txt");
+	//for (const auto& ground_point : ground_points) {
+	//	double X = ground_point.x(), Y = ground_point.y(), Z = ground_point.z();
+	//	gcp_file << std::fixed << X << "\t" << Y << "\t" << Z << "\n";
+	//}
+	//gcp_file.close();
 
 	std::vector<Eigen::Vector3d>ground_points_blh;
-	std::ofstream gcpblh_file("../inter_result/ground_points_BLH.txt");
+	//std::ofstream gcpblh_file("../inter_result/ground_points_BLH.txt");
 	rotation_hanler.convert_wgs84_to_geodetic(ground_points, ground_points_blh);
 	for (const auto& ground_point : ground_points_blh) {
 		double lat = ground_point.x(), lon = ground_point.y(), alt = ground_point.z();
-		gcpblh_file << std::fixed << lat << "\t" << lon << "\t" << alt << "\n";
+		//gcpblh_file << std::fixed << lat << "\t" << lon << "\t" << alt << "\n";
 	}
-	gcpblh_file.close();
+	//gcpblh_file.close();
 
 	ClassRPC rpc;
-	std::vector<Eigen::Vector2d> image_barycentric;
-	std::vector<Eigen::Vector3d> ground_barycentric;
+	std::vector<Eigen::Vector2d> image_norm;
+	std::vector<Eigen::Vector3d> ground_norm;
 
-	rpc.barycentric(extent_image_points, ground_points_blh, image_barycentric, ground_barycentric);
+	rpc.calculate_norm_param(extent_image_points, ground_points_blh);
+	rpc.normalize(extent_image_points, ground_points_blh, image_norm, ground_norm);
 
-	std::ofstream image_bary_file("../inter_result/image_barycentric.txt");
-	for (const auto& image_bary : image_barycentric) {
-		double X = image_bary.x(), Y = image_bary.y();
-		image_bary_file << std::fixed << X << "\t" << Y  << "\n";
-	}
-	image_bary_file.close();
-	std::ofstream ground_bary_file("../inter_result/ground_barycentric.txt");
-	for (const auto& ground_bary : ground_barycentric) {
-		double X = ground_bary.x(), Y = ground_bary.y(), Z = ground_bary.z();
-		ground_bary_file << std::fixed << X << "\t" << Y << "\t" << Z << "\n";
-	}
-	ground_bary_file.close();
-	rpc.calculate_RPC(image_barycentric, ground_barycentric);
+	//std::ofstream image_bary_file("../inter_result/image_barycentric.txt");
+	//for (const auto& image_bary : image_norm) {
+	//	double X = image_bary.x(), Y = image_bary.y();
+	//	image_bary_file << std::fixed << X << "\t" << Y  << "\n";
+	//}
+	//image_bary_file.close();
+
+	//std::ofstream ground_bary_file("../inter_result/ground_barycentric.txt");
+	//for (const auto& ground_bary : ground_norm) {
+	//	double X = ground_bary.x(), Y = ground_bary.y(), Z = ground_bary.z();
+	//	ground_bary_file << std::fixed << X << "\t" << Y << "\t" << Z << "\n";
+	//}
+	//ground_bary_file.close();
+	rpc.calculate_RPCs(image_norm, ground_norm);
 	rpc.save_RPCs("../inter_result/result.txt");
+
+	std::string path_range = "../data/range.txt";
+	const char* path_dem = "../data/n35_e114_1arc_v3.tif";
+	// 获取检查点
+	std::vector<Eigen::Vector3d> check_points;
+	PreciseCheck::get_check_grid(path_range, path_dem, check_grid_m, check_grid_n, check_points);
+	// 转为wgs84坐标
+	std::vector<Eigen::Vector3d>check_Ptswgs;
+	rotation_hanler.convert_geodetic_to_wgs84(check_points, check_Ptswgs);
+	// 利用严格模型计算检查点
+	std::vector<Eigen::Vector2d> check_image;
+	std::vector<Eigen::Vector3d> check_ground;
+	rpc.check(check_Ptswgs, ex_element.gps, rotation_hanler.R_j2w, rotation_hanler.R_b2j, rotation_hanler.ux, check_image, check_ground);
+	// 转为大地坐标BLH
+	std::vector<Eigen::Vector3d>check_groundBLH;
+	rotation_hanler.convert_wgs84_to_geodetic(check_ground, check_groundBLH);
+	// 标准化
+	std::vector<Eigen::Vector2d> check_image_norm;
+	std::vector<Eigen::Vector3d> check_ground_norm;
+	rpc.normalize(check_image, check_groundBLH, check_image_norm, check_ground_norm);
+	// 利用RPC模型计算像点坐标
+	std::vector<Eigen::Vector2d> check_image_predNorm;
+	rpc.calculate_imgPt_from_RPCs(check_image_predNorm, check_ground_norm);
+
+	double error_row = 0., error_col = 0.;
+	for (int i = 0; i < check_image_norm.size(); ++i) {
+		error_row += std::abs(check_image_predNorm[i][0] - check_image_norm[i][0]);
+		error_col += std::abs(check_image_predNorm[i][1] - check_image_norm[i][1]);
+	}
+	error_row /= check_image_norm.size();
+	error_col /= check_image_norm.size();
+	std::cout << "MAE in row:" << error_row << std::endl;
+	std::cout << "MAE in col:" << error_col << std::endl;
+
 	return 0;
 }
