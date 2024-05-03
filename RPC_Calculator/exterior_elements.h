@@ -42,7 +42,13 @@ public:
      */
     void load_attData(const std::string& filePath, std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData);
 
-    //void transform_time(const std::vector<std::tuple<int, double, double>>& imageTime, std::vector<double>& transformedTime);
+    /**
+     * @brief 加载姿态数据文件
+     *
+     * @param filePath 姿态数据文件路径
+     * @param gpsData 存放读入的姿态数据文件数组 timeCode dateTime roll pitch yaw roll_velocity pitch_velocity yaw_velocity q1 q2 q3 q4
+     */
+    void transform_time(const std::vector<std::tuple<int, double, double>>& imageTime);
 
     /**
      * @brief 内插姿态数据得到成像时刻四元数
@@ -61,11 +67,13 @@ public:
     void gps_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData);
 
 public:
+    std::vector<std::tuple<int, double, double>> image_time;
+
     // 成像时刻姿态 q1 q2 q3 q4
     std::vector<Eigen::Vector4d> att;
     // 成像时刻位置 PX PY PZ
     std::vector<Eigen::Vector3d> gps;
-
-    //std::vector<double> transformed_time;
+    // 成像时刻儒略历日
+    std::vector<std::tuple<int, int, int, int, int, double>> transformed_time;
 };
 

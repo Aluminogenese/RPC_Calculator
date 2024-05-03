@@ -2,7 +2,7 @@
 #include <iomanip>
 ExteriorElements::ExteriorElements(const std::string& attDataPath, const std::string& gpsDataPath, const std::string& imgTimePath) {
     // 存放读入的时间标签文件 RelLine Time deltaTime
-    std::vector<std::tuple<int, double, double>> image_time;
+    //std::vector<std::tuple<int, double, double>> image_time;
     // 存放读入的gps数据文件 timeCode dateTime PX PY PZ VX VY VZ
     std::vector<std::tuple<double, std::string, double, double, double, double, double, double>> gps_data;
     // 存放读入的姿态数据文件 timeCode dateTime roll pitch yaw roll_velocity pitch_velocity yaw_velocity q1 q2 q3 q4 
@@ -11,7 +11,7 @@ ExteriorElements::ExteriorElements(const std::string& attDataPath, const std::st
     load_imageTime(imgTimePath, image_time);
     load_gpsData(gpsDataPath, gps_data);
     load_attData(attDataPath, att_data);
-    //transformed_time = transform_time(imageTime);
+    transform_time(image_time);
 
     if (image_time.empty() || gps_data.empty() || att_data.empty()) {
         std::cout << "Error reading external orientation data." << std::endl;
@@ -159,9 +159,27 @@ void ExteriorElements::load_attData(const std::string& filePath, std::vector<std
     file.close();
 }
 
-//void ExteriorElements::transform_time(const std::vector<std::tuple<int, double, double>>& imageTime, std::vector<double>& transformedTime) {
-//
-//}
+void ExteriorElements::transform_time(const std::vector<std::tuple<int, double, double>>& imageTime) {
+    double timeCode0= 131862356.2500000000;
+    int year = 2013;
+    int month = 3;
+    double base_day = 7 + 4.0 / 24 + 25 / (24.0 * 60) + 56.25 / (24.0 * 60 * 60);
+
+    for (int i = 0; i < imageTime.size(); ++i) {
+        double image_time = base_day + (std::get<1>(imageTime[i]) - timeCode0) / (24.0 * 60 * 60);
+        int day = static_cast<int>(image_time);
+
+        double hoursDecimal = (image_time - day) * 24;
+        int hours = static_cast<int>(hoursDecimal);
+
+        double minutesDecimal = (hoursDecimal - hours) * 60;
+        int minutes = static_cast<int>(minutesDecimal);
+
+        double seconds = (minutesDecimal - minutes) * 60;
+
+        transformed_time.push_back(std::make_tuple(year, month, day,hours,minutes,seconds));
+    }
+}
 
 void ExteriorElements::att_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double, double, double, double, double>>& attData) {
     double deltaTime = std::get<0>(attData[1]) - std::get<0>(attData[0]);
@@ -175,7 +193,8 @@ void ExteriorElements::att_interpolate(const std::vector<std::tuple<int, double,
         Eigen::Vector4d q1(std::get<8>(attData[index + 1]), std::get<9>(attData[index + 1]), std::get<10>(attData[index + 1]), std::get<11>(attData[index + 1]));
         Eigen::Vector4d qt;
         double tq = q0.dot(q1);
-        if (std::abs(1 - std::abs(tq)) < 0.001) {
+        //if (std::abs(1 - std::abs(tq)) < 0.001) {
+        if (std::abs(tq) == 1) {
             qt = q0 * (t1 - t) / (t1 - t0) + q1 * (t - t0) / (t1 - t0);
         }
         else {
@@ -198,12 +217,12 @@ void ExteriorElements::gps_interpolate(const std::vector<std::tuple<int, double,
         double t = std::get<1>(image_time);
         int index = std::floor((t - t_gpsStart) / deltaTime);
         Eigen::Vector3d Pt = Eigen::Vector3d::Zero();
-        for (int i = 0; i < 9; i++) {
+        for (int i = 1; i < 9; i++) {
             Eigen::Vector3d Pi(std::get<2>(gpsData[index + i - 4]), std::get<3>(gpsData[index + i - 4]), std::get<4>(gpsData[index + i - 4]));
-            double tj = std::get<0>(gpsData[index + i - 4]);
-            for (int j = 0; j < 9; j++) {
+            double ti = std::get<0>(gpsData[index + i - 4]);
+            for (int j = 1; j < 9; j++) {
                 if (j != i) {
-                    Pi *= (t - std::get<0>(gpsData[index + j - 4])) / (tj - std::get<0>(gpsData[index + j - 4]));
+                    Pi *= (t - std::get<0>(gpsData[index + j - 4])) / (ti - std::get<0>(gpsData[index + j - 4]));
                 }
             }
             Pt += Pi;

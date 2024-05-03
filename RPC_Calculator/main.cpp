@@ -3,6 +3,7 @@
 #include "rotation.h"
 #include "class_RPC.h"
 #include "precise_check.h"
+#include <iomanip>
 
 int main() {
 	// 参数设定
@@ -22,12 +23,18 @@ int main() {
 	std::string gps_path = "../data/DX_ZY3_NAD_gps.txt";
 	std::string image_time_path = "../data/DX_ZY3_NAD_imagingTime.txt";
 	ExteriorElements ex_element(att_path, gps_path, image_time_path);
+	//std::ofstream utc_file("../data/utc_imgTime.txt");
+	//for (const auto&utc_time: ex_element.transformed_time) {
+	//	utc_file << std::fixed << std::setprecision(std::numeric_limits<double>::digits10 + 1) << std::get<0>(utc_time) << " " << std::get<1>(utc_time) << " " << std::get<2>(utc_time) << " "
+	//		<< std::get<3>(utc_time) << " " << std::get<4>(utc_time) << " " << std::get<5>(utc_time) << std::endl;
+	//}
+	//utc_file.close();
 	// 旋转矩阵
 	std::string direct_path = "../data/NAD.cbr";
 	std::string Ru_path = "../data/NAD.txt";
-	std::string Rj2w_path = "../data/rot.txt";
+	std::string Rj2w_path = "../data/J2000_2_wgs84.txt";
 	Rotation rotation_hanler(Ru_path, direct_path, Rj2w_path, ex_element.att);
-
+	rotation_hanler.calculate_R_j2w(ex_element.image_time);
 	//std::ofstream b2j_file("../inter_result/b2j.txt");
 	//for (const auto& b2j : rotation_hanler.R_b2j) {
 	//	b2j_file << b2j << "\n";

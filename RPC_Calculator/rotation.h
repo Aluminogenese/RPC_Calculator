@@ -52,7 +52,8 @@ public:
 	 *
 	 * @param filePath 文件路径
 	 */
-	void calculate_Rj2w(const std::string& filePath);
+	//void calculate_Rj2w(const std::string& filePath);
+	void calculate_R_j2w(const std::vector<std::tuple<int, double, double>>& imageTime);
 
 	/**
 	 * @brief 由像元指向角计算视向量（tanφy,tanφx,-1)

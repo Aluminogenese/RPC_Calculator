@@ -10,7 +10,7 @@ Rotation::Rotation(const std::string& RuPath, const std::string& directPath, con
     // 本体坐标系到J2000坐标系
     calculate_Rb2j(att);
     // J2000到WGS84
-    calculate_Rj2w(rotPath);
+    //calculate_Rj2w(rotPath);
     // 视向量
     get_ux(directData);
 
@@ -100,26 +100,57 @@ void Rotation::calculate_Rb2j(const std::vector<Eigen::Vector4d>& att)
     }
 }
 
-void Rotation::calculate_Rj2w(const std::string& filePath)
-{
-    std::ifstream file(filePath);
-    if (!file.is_open()) {
-        std::cerr << "Error opening file." << std::endl;
-    }
-    std::string line;
-    double a1, a2, a3, b1, b2, b3, c1, c2, c3;
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
+//void Rotation::calculate_Rj2w(const std::string& filePath)
+//{
+//    std::ifstream file(filePath);
+//    if (!file.is_open()) {
+//        std::cerr << "Error opening file." << std::endl;
+//    }
+//    std::string line;
+//    double a1, a2, a3, b1, b2, b3, c1, c2, c3;
+//    while (std::getline(file, line)) {
+//        std::istringstream iss(line);
+//
+//        if (!(iss >> a1 >> a2 >> a3 >> b1 >> b2 >> b3 >> c1 >> c2 >> c3)) {
+//            std::cerr << "Error parsing line:" << line << std::endl;
+//            continue;
+//        }
+//        Eigen::Matrix3d tmp_matrix;
+//        tmp_matrix << a1, a2, a3, b1, b2, b3, c1, c2, c3;
+//        R_j2w.push_back(tmp_matrix);
+//    }
+//    file.close();
+//}
 
-        if (!(iss >> a1 >> a2 >> a3 >> b1 >> b2 >> b3 >> c1 >> c2 >> c3)) {
-            std::cerr << "Error parsing line:" << line << std::endl;
-            continue;
-        }
-        Eigen::Matrix3d tmp_matrix;
-        tmp_matrix << a1, a2, a3, b1, b2, b3, c1, c2, c3;
-        R_j2w.push_back(tmp_matrix);
+void Rotation::calculate_R_j2w(const std::vector<std::tuple<int, double, double>>& imageTime)
+{
+    for (auto& image_time : imageTime) {
+        double time = std::get<1>(image_time);
+        double time1 = 131862405.2500000000;
+        double time2 = 131862406.7500000000;
+        double dtime = time2 - time1;
+
+        // Rotation matrices R1 and R2 corresponding to time1 and time2
+        Eigen::Matrix3d R1;
+        R1 << -0.62147174805362, 0.78343548034469, 0.00130939232498,
+            -0.78343617543040, -0.62147225052319, -0.00002926825707,
+            0.00079082120399, -0.00104401471011, 0.99999914231719;
+
+        Eigen::Matrix3d R2;
+        R2 << -0.62135749005979, 0.78352610360981, 0.00130939246660,
+            -0.78352679876876, -0.62135799242833, -0.00002926804724,
+            0.00079066919534, -0.00104413000806, 0.99999914231701;
+        // Convert rotation matrices to quaternion
+        Eigen::Quaterniond q1(R1.transpose());
+        Eigen::Quaterniond q2(R2.transpose());
+
+        // Interpolate rotation quaternion
+        Eigen::Quaterniond interpolated_q = q1.slerp((time - time1) / dtime, q2);
+
+        // Convert interpolated quaternion back to rotation matrix
+        R_j2w.push_back(interpolated_q.toRotationMatrix());
+
     }
-    file.close();
 }
 
 void Rotation::get_ux(const std::vector<std::tuple<int, double, double>>& directData)
