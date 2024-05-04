@@ -21,6 +21,12 @@
     <ClInclude Include="rotation.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="class_RPC.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="precise_check.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="exterior_elements.cpp">
@@ -30,6 +36,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="rotation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="class_RPC.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="precise_check.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

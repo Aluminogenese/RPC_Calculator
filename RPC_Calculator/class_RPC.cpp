@@ -44,11 +44,10 @@ void ClassRPC::normalize(const std::vector<Eigen::Vector2d>& image_points, const
 	}
 }
 
-void ClassRPC::de_normalize(const std::vector<Eigen::Vector2d>& image_norm, const std::vector<Eigen::Vector3d>& ground_norm, std::vector<Eigen::Vector2d>& image_points, std::vector<Eigen::Vector3d>& ground_points)
+void ClassRPC::de_normalize(const std::vector<Eigen::Vector2d>& image_norm, std::vector<Eigen::Vector2d>& image_points)
 {
 	for (int i = 0; i < image_norm.size(); i++) {
 		image_points.push_back(image_centroid + Eigen::Vector2d(image_norm[i].x() * image_scale.x(), image_norm[i].y() * image_scale.y()));
-		ground_points.push_back(ground_centroid + Eigen::Vector3d(ground_norm[i].x() * ground_scale.x(), ground_norm[i].y() * ground_scale.y(), ground_norm[i].z() * ground_scale.z()));
 	}
 }
 
@@ -76,7 +75,6 @@ void ClassRPC::calculate_RPCs(const std::vector<Eigen::Vector2d>& image_points, 
 		double D = vec1.dot(d);
 		N.row(i) << vec1.transpose(), -image_points[i].y() * vec2.transpose();
 	}
-	// 行列分别解算
 	Eigen::MatrixXd A_r = M.transpose() * W_r * M;
 	Eigen::MatrixXd L_r = M.transpose() * W_r * R;
 	Eigen::VectorXd J = A_r.inverse() * L_r;
@@ -107,19 +105,19 @@ void ClassRPC::calculate_RPCs(const std::vector<Eigen::Vector2d>& image_points, 
 			W_r(i, i) = 1 / B;
 		}
 		// 行列分别解算
-		A_r = M.transpose() * M;
-		L_r = M.transpose() * R;
+		A_r = M.transpose() * W_r * M;
+		L_r = M.transpose() * W_r * R;
 		J = A_r.inverse() * L_r;
 
-		Eigen::VectorXd V_r = W_r * M * J - W_r * R;
+		Eigen::VectorXd V_r = M * J -R;
 
 		a = J.segment(0, 20);
 		b.segment(1, 19) = J.segment(20, 19);
 
 		//std::cout << "max V_r:" << V_r.maxCoeff() << std::endl;
-		std::cout << "max V_r:" << V_r.maxCoeff() * image_scale.x() << std::endl;
+		std::cout << "max V_r:" << V_r.maxCoeff() / W_r.minCoeff() * image_scale.x() << std::endl;
 
-		if (std::abs(V_r.maxCoeff()) * image_scale.x()< 1) {
+		if (std::abs(V_r.maxCoeff() / W_r.minCoeff()) * image_scale.x()< 1) {
 			std::cout << "iteration: " << iter << std::endl;
 			break;
 		}
@@ -140,19 +138,18 @@ void ClassRPC::calculate_RPCs(const std::vector<Eigen::Vector2d>& image_points, 
 			N.row(i) << vec1.transpose(), -image_points[i].y() * vec2.transpose();
 			W_c(i, i) = 1 / D;
 		}
-		A_c = N.transpose() * N;
-		L_c = N.transpose() * C;
+		A_c = N.transpose() * W_c * N;
+		L_c = N.transpose() * W_c * C;
 		K = A_c.inverse() * L_c;
 
-		Eigen::VectorXd V_c = W_c * N * K - W_c * C;
+		Eigen::VectorXd V_c = N * K - C;
 
 		c = K.segment(0, 20);
 		d.segment(1, 19) = K.segment(20, 19);
 
-		//std::cout << "max V_c:" << V_c.maxCoeff() << std::endl;
-		std::cout << "max V_c:" << V_c.maxCoeff() * image_scale.y() << std::endl;
+		std::cout << "max V_c:" << V_c.maxCoeff() / W_c.minCoeff() * image_scale.y() << std::endl;
 
-		if (std::abs(V_c.maxCoeff()) * image_scale.y() < 1) {
+		if (std::abs(V_c.maxCoeff() / W_c.minCoeff()) * image_scale.y() < 1) {
 			std::cout << "iteration: " << iter << std::endl;
 			break;
 		}

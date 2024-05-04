@@ -2,20 +2,14 @@
 
 void PreciseCheck::pixelToGeo(const double* transformer, const Eigen::Vector2i& pixel_coor, Eigen::Vector2d& geo_coor)
 {
-	geo_coor(0) = transformer[0] + pixel_coor(0) * transformer[1] + pixel_coor(1) * transformer[2];
-	geo_coor(1) = transformer[3] + pixel_coor(0) * transformer[4] + pixel_coor(1) * transformer[5];
+	geo_coor.x() = transformer[0] + pixel_coor(0) * transformer[1] + pixel_coor(1) * transformer[2];
+	geo_coor.y() = transformer[3] + pixel_coor(0) * transformer[4] + pixel_coor(1) * transformer[5];
 }
 
 void PreciseCheck::geoToPixel(double* transformer, const Eigen::Vector2d& geo_coor, Eigen::Vector2d& pixel_coor)
 {
     pixel_coor.x() = (geo_coor.x() - transformer[0]) / transformer[1];
     pixel_coor.y() = (geo_coor.y() - transformer[3]) / transformer[5];
-
-    //double invTransformer[6];
-    //GDALInvGeoTransform(transformer, invTransformer);
-    //double w = invTransformer[0] + invTransformer[1] * geo_coor.x() + invTransformer[2] * geo_coor.y();
-    //double h = invTransformer[3] + invTransformer[4] * geo_coor.x() + invTransformer[5] * geo_coor.y();
-    //pixel_coor << w, h;
 }
 
 void PreciseCheck::get_check_grid(const std::string& path_range, const char* path_dem, const int& grid_m, const int& grid_n, std::vector<Eigen::Vector3d>& ground_poinds)
@@ -65,11 +59,11 @@ void PreciseCheck::get_check_grid(const std::string& path_range, const char* pat
 
     for (int j = 0; j <= grid_n; ++j) {
         for (int i = 0; i <= grid_m; ++i) {
-            int pt_x = static_cast<int>((i * dh) / grid_n + w_min);
-            int pt_y = static_cast<int>((j * dw) / grid_m + h_min);
+            int pt_x = static_cast<int>((i * dw) / grid_m + w_min);
+            int pt_y = static_cast<int>((j * dh) / grid_n + h_min);
             Eigen::Vector2d geo_coor;
             pixelToGeo(transformer, Eigen::Vector2i(pt_x, pt_y), geo_coor);//pt_x:col,pt_y:row
-            double hh = im_data[pt_x * im_width + pt_y];
+            double hh = im_data[pt_y * im_width + pt_x];
             ground_poinds.push_back(Eigen::Vector3d(geo_coor.y(), geo_coor.x(), hh));
         }
     }

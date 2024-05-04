@@ -1,0 +1,2 @@
+MAE in row:0.515272
+MAE in col:0.239277

@@ -50,8 +50,7 @@ public:
 	 * @param image_points 去标准化像点坐标
 	 * @param ground_points 去标准化物方坐标
 	 */
-	void de_normalize(const std::vector<Eigen::Vector2d>& image_norm, const std::vector<Eigen::Vector3d>& ground_norm,
-		std::vector<Eigen::Vector2d>& image_points, std::vector<Eigen::Vector3d>& ground_points);
+	void de_normalize(const std::vector<Eigen::Vector2d>& image_norm, std::vector<Eigen::Vector2d>& image_points);
 
 	/**
 	 * @brief 计算RPC参数

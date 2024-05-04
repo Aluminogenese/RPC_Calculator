@@ -104,6 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,12 +128,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="class_RPC.h" />
     <ClInclude Include="exterior_elements.h" />
+    <ClInclude Include="precise_check.h" />
     <ClInclude Include="rotation.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="class_RPC.cpp" />
     <ClCompile Include="exterior_elements.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="precise_check.cpp" />
     <ClCompile Include="rotation.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

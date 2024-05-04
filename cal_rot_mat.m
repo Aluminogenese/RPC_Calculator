@@ -1,6 +1,6 @@
 dcm_demo=dcmeci2ecef('IAU-2000/2006',[2021 5 15 17 40 53]);
 
-ac_time=load('data\utc_imgTime.txt');
+ac_time=load('inter_result\utc_imgTime.txt');
 [L,~]=size(ac_time(:,1));
 for i = 1:L
     dcm=dcmeci2ecef('IAU-2000/2006',ac_time(i,:));
