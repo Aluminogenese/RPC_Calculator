@@ -76,9 +76,28 @@ public:
 	 */
 	void calculate_imgPt_from_RPCs(std::vector<Eigen::Vector2d>& image_points, const std::vector<Eigen::Vector3d>& ground_points);
 
-	void calculate_imagePt(const Eigen::Matrix3d& R_j2w, const Eigen::Matrix3d& R_b2j, const Eigen::Vector3d& XYZ, const Eigen::Vector3d& gps, Eigen::Vector2d& image_point);
+	/**
+	 * @brief 利用严格模型计算像点坐标
+	 *
+	 * @param ground_point 地面点坐标
+	 * @param gps GPS天线相位中心坐标
+	 * @param R_j2w J2000到WGS-84旋转矩阵
+	 * @param R_b2j 本体到J2000旋转矩阵
+	 * @image_point 计算得到的像点坐标
+	 */
+	void calculate_imagePt(const Eigen::Vector3d& ground_point, const Eigen::Vector3d& gps, const Eigen::Matrix3d& R_j2w, const Eigen::Matrix3d& R_b2j, Eigen::Vector2d& image_point);
 
-	void check(const std::vector<Eigen::Vector3d>& check_points,
+	/**
+	 * @brief 窗口二分法最佳扫描线搜索获取检查点
+	 *
+	 * @param check_points 生成的检查格网点物方坐标
+	 * @param gps GPS天线相位中心坐标
+	 * @param R_j2w J2000到WGS-84旋转矩阵
+	 * @param R_b2j 本体到J2000旋转矩阵
+	 * @image_points 计算得到的检查点像方坐标
+	 * @param ground_points 计算得到的检查点物方坐标
+	 */
+	void generate_checkPts(const std::vector<Eigen::Vector3d>& check_points,
 		const std::vector<Eigen::Vector3d>& gps,
 		const std::vector<Eigen::Matrix3d>& R_j2w,
 		const std::vector<Eigen::Matrix3d>& R_b2j,

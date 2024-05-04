@@ -52,8 +52,7 @@ public:
 	 *
 	 * @param filePath 文件路径
 	 */
-	//void calculate_Rj2w(const std::string& filePath);
-	void calculate_R_j2w(const std::vector<std::tuple<int, double, double>>& imageTime);
+	void calculate_Rj2w(const std::string& filePath);
 
 	/**
 	 * @brief 由像元指向角计算视向量（tanφy,tanφx,-1)
@@ -105,6 +104,7 @@ public:
 	std::vector<Eigen::Matrix3d> R_b2j;
 	// J2000坐标系到WGS-84坐标系
 	std::vector<Eigen::Matrix3d> R_j2w;
+	// 视向量
 	std::vector<Eigen::Vector3d> ux;
 };
 

@@ -57,18 +57,17 @@ void ClassRPC::calculate_RPCs(const std::vector<Eigen::Vector2d>& image_points, 
 	int num = image_points.size();
 	Eigen::VectorXd R(num), C(num);
 	Eigen::MatrixXd M(num, 39), N(num, 39);
+	// 求迭代初值（W矩阵设为单位阵）
 	Eigen::MatrixXd W_r = Eigen::MatrixXd::Identity(num, num), W_c = Eigen::MatrixXd::Identity(num, num);
 	for (int i = 0; i < ground_points.size(); i++) {
 		R(i) = image_points[i].x();
 		C(i) = image_points[i].y();
-		//G(i) = image_points[i].x();
-		//G(i + num) = image_points[i].y();
 		double X = ground_points[i].x();
 		double Y = ground_points[i].y();
 		double Z = ground_points[i].z();
 		Eigen::VectorXd vec1(20), vec2;
 		vec1 << 1, Y, X, Z, Y* X, Y* Z, X* Z, Y* Y, X* X, Z* Z, X* Y* Z, Y* Y* Y, Y* X* X, Y* Z* Z, Y* Y* X, X* X* X, X* Z* Z, Y* Y* Z, X* X* Z, Z* Z* Z;
-		//vec << 1, Z, Y, X, Z* Y, Z* X, Y* X, Z* Z, Y* Y, X* X, Z* Y* X, Z* Z* Y, Z* Z* X, Y* Y* Z, Y* Y* X, Z* X* X, Y* X* X, Z* Z* Z, Y* Y* Y, X* X* X;
+		//vec1 << 1, Z, Y, X, Z* Y, Z* X, Y* X, Z* Z, Y* Y, X* X, Z* Y* X, Z* Z* Y, Z* Z* X, Y* Y* Z, Y* Y* X, Z* X* X, Y* X* X, Z* Z* Z, Y* Y* Y, X* X* X;
 		vec2 = vec1.tail(19);
 
 		double B = vec1.dot(b);
@@ -91,9 +90,42 @@ void ClassRPC::calculate_RPCs(const std::vector<Eigen::Vector2d>& image_points, 
 	c = K.segment(0, 20);
 	d.segment(1, 19) = K.segment(20, 19);
 
-	for (int iter = 0; iter < 20; iter++) {
+	for (int iter = 0; iter < 30; iter++) {
 		for (int i = 0; i < ground_points.size(); i++) {
 			R(i) = image_points[i].x();
+
+			double X = ground_points[i].x();
+			double Y = ground_points[i].y();
+			double Z = ground_points[i].z();
+			Eigen::VectorXd vec1(20), vec2;
+			vec1 << 1, Y, X, Z, Y* X, Y* Z, X* Z, Y* Y, X* X, Z* Z, X* Y* Z, Y* Y* Y, Y* X* X, Y* Z* Z, Y* Y* X, X* X* X, X* Z* Z, Y* Y* Z, X* X* Z, Z* Z* Z;
+			//vec1 << 1, Z, Y, X, Z* Y, Z* X, Y* X, Z* Z, Y* Y, X* X, Z* Y* X, Z* Z* Y, Z* Z* X, Y* Y* Z, Y* Y* X, Z* X* X, Y* X* X, Z* Z* Z, Y* Y* Y, X* X* X;
+			vec2 = vec1.tail(19);
+
+			double B = vec1.dot(b);
+			M.row(i) << vec1.transpose(), -image_points[i].x() * vec2.transpose();
+			W_r(i, i) = 1 / B;
+		}
+		// 行列分别解算
+		A_r = M.transpose() * M;
+		L_r = M.transpose() * R;
+		J = A_r.inverse() * L_r;
+
+		Eigen::VectorXd V_r = W_r * M * J - W_r * R;
+
+		a = J.segment(0, 20);
+		b.segment(1, 19) = J.segment(20, 19);
+
+		//std::cout << "max V_r:" << V_r.maxCoeff() << std::endl;
+		std::cout << "max V_r:" << V_r.maxCoeff() * image_scale.x() << std::endl;
+
+		if (std::abs(V_r.maxCoeff()) * image_scale.x()< 1) {
+			std::cout << "iteration: " << iter << std::endl;
+			break;
+		}
+	}
+	for (int iter = 0; iter < 30; iter++) {
+		for (int i = 0; i < ground_points.size(); i++) {
 			C(i) = image_points[i].y();
 
 			double X = ground_points[i].x();
@@ -101,39 +133,31 @@ void ClassRPC::calculate_RPCs(const std::vector<Eigen::Vector2d>& image_points, 
 			double Z = ground_points[i].z();
 			Eigen::VectorXd vec1(20), vec2;
 			vec1 << 1, Y, X, Z, Y* X, Y* Z, X* Z, Y* Y, X* X, Z* Z, X* Y* Z, Y* Y* Y, Y* X* X, Y* Z* Z, Y* Y* X, X* X* X, X* Z* Z, Y* Y* Z, X* X* Z, Z* Z* Z;
-			//vec << 1, Z, Y, X, Z* Y, Z* X, Y* X, Z* Z, Y* Y, X* X, Z* Y* X, Z* Z* Y, Z* Z* X, Y* Y* Z, Y* Y* X, Z* X* X, Y* X* X, Z* Z* Z, Y* Y* Y, X* X* X;
+			//vec1 << 1, Z, Y, X, Z* Y, Z* X, Y* X, Z* Z, Y* Y, X* X, Z* Y* X, Z* Z* Y, Z* Z* X, Y* Y* Z, Y* Y* X, Z* X* X, Y* X* X, Z* Z* Z, Y* Y* Y, X* X* X;
 			vec2 = vec1.tail(19);
-
-			double B = vec1.dot(b);
-			M.row(i) << vec1.transpose(), -image_points[i].x() * vec2.transpose();
-			W_r(i, i) = 1 / B;
 
 			double D = vec1.dot(d);
 			N.row(i) << vec1.transpose(), -image_points[i].y() * vec2.transpose();
 			W_c(i, i) = 1 / D;
 		}
-		// 行列分别解算
-		A_r = M.transpose() * W_r * M;
-		L_r = M.transpose() * W_r * R;
-		J = A_r.inverse() * L_r;
-
-		A_c = N.transpose() * W_c * N;
-		L_c = N.transpose() * W_c * C;
+		A_c = N.transpose() * N;
+		L_c = N.transpose() * C;
 		K = A_c.inverse() * L_c;
 
-		Eigen::VectorXd V_r = W_r * M * J - W_r * R;
 		Eigen::VectorXd V_c = W_c * N * K - W_c * C;
 
-		a = J.segment(0, 20);
-		b.segment(1, 19) = J.segment(20, 19);
 		c = K.segment(0, 20);
 		d.segment(1, 19) = K.segment(20, 19);
 
-		if (std::max(std::abs(V_r.maxCoeff()) * image_scale.x(), std::abs(V_c.maxCoeff()) * image_scale.y()) < 1) {
+		//std::cout << "max V_c:" << V_c.maxCoeff() << std::endl;
+		std::cout << "max V_c:" << V_c.maxCoeff() * image_scale.y() << std::endl;
+
+		if (std::abs(V_c.maxCoeff()) * image_scale.y() < 1) {
 			std::cout << "iteration: " << iter << std::endl;
 			break;
 		}
 	}
+
 }
 
 void ClassRPC::save_RPCs(const std::string& filePath)
@@ -188,17 +212,17 @@ void ClassRPC::calculate_imgPt_from_RPCs(std::vector<Eigen::Vector2d>& image_poi
 	}
 }
 
-void ClassRPC::calculate_imagePt(const Eigen::Matrix3d& R_j2w, const Eigen::Matrix3d& R_b2j, const Eigen::Vector3d& XYZ, const Eigen::Vector3d& gps, Eigen::Vector2d& image_point)
+void ClassRPC::calculate_imagePt(const Eigen::Vector3d& ground_point, const Eigen::Vector3d& gps, const Eigen::Matrix3d& R_j2w, const Eigen::Matrix3d& R_b2j, Eigen::Vector2d& image_point)
 {
-	Eigen::Vector3d XYZ_hat = (R_j2w * R_b2j).inverse() * (XYZ - gps);
+	Eigen::Vector3d XYZ_hat = (R_j2w * R_b2j).inverse() * (ground_point - gps);
 	image_point << -XYZ_hat[0] / XYZ_hat[2], -XYZ_hat[1] / XYZ_hat[2];
 }
 
-void ClassRPC::check(const std::vector<Eigen::Vector3d>& check_points, const std::vector<Eigen::Vector3d>& gps, const std::vector<Eigen::Matrix3d>& R_j2w, const std::vector<Eigen::Matrix3d>& R_b2j, const std::vector<Eigen::Vector3d>& ux, std::vector<Eigen::Vector2d>& image_points, std::vector<Eigen::Vector3d>& ground_points)
+void ClassRPC::generate_checkPts(const std::vector<Eigen::Vector3d>& check_points, const std::vector<Eigen::Vector3d>& gps, const std::vector<Eigen::Matrix3d>& R_j2w, const std::vector<Eigen::Matrix3d>& R_b2j, const std::vector<Eigen::Vector3d>& ux, std::vector<Eigen::Vector2d>& image_points, std::vector<Eigen::Vector3d>& ground_points)
 {
 	std::vector<int> check_x;
 	std::vector<int> check_y;
-	std::vector<int> invalid;
+	std::vector<int> invalid;//无效点索引
 	int line_num = gps.size();
 	for (int i = 0; i < check_points.size(); ++i) {
 		Eigen::Vector3d checkPt = check_points[i];
@@ -209,9 +233,9 @@ void ClassRPC::check(const std::vector<Eigen::Vector3d>& check_points, const std
 		{
 			int L = (Ls + Le) / 2;
 			Eigen::Vector2d xs, x, xe;
-			calculate_imagePt(R_j2w[Ls], R_b2j[Ls], checkPt, gps[Ls], xs);
-			calculate_imagePt(R_j2w[L], R_b2j[L], checkPt, gps[L], x);
-			calculate_imagePt(R_j2w[Le], R_b2j[Le], checkPt, gps[Le], xe);
+			calculate_imagePt(checkPt, gps[Ls], R_j2w[Ls], R_b2j[Ls], xs);
+			calculate_imagePt(checkPt, gps[L], R_j2w[L], R_b2j[L], x);
+			calculate_imagePt(checkPt, gps[Le], R_j2w[Le], R_b2j[Le], xe);
 			if (xs[0] < 0 && x[0] < 0 && xe[0] < 0) {
 				iteration = false;
 				invalid.push_back(i);

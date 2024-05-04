@@ -67,13 +67,11 @@ public:
     void gps_interpolate(const std::vector<std::tuple<int, double, double>>& imageTime, const std::vector<std::tuple<double, std::string, double, double, double, double, double, double>>& gpsData);
 
 public:
-    std::vector<std::tuple<int, double, double>> image_time;
-
     // 成像时刻姿态 q1 q2 q3 q4
     std::vector<Eigen::Vector4d> att;
     // 成像时刻位置 PX PY PZ
     std::vector<Eigen::Vector3d> gps;
-    // 成像时刻儒略历日
+    // 成像时刻UTC
     std::vector<std::tuple<int, int, int, int, int, double>> transformed_time;
 };
 

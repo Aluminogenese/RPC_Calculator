@@ -23,18 +23,20 @@ int main() {
 	std::string gps_path = "../data/DX_ZY3_NAD_gps.txt";
 	std::string image_time_path = "../data/DX_ZY3_NAD_imagingTime.txt";
 	ExteriorElements ex_element(att_path, gps_path, image_time_path);
+
 	//std::ofstream utc_file("../data/utc_imgTime.txt");
 	//for (const auto&utc_time: ex_element.transformed_time) {
 	//	utc_file << std::fixed << std::setprecision(std::numeric_limits<double>::digits10 + 1) << std::get<0>(utc_time) << " " << std::get<1>(utc_time) << " " << std::get<2>(utc_time) << " "
 	//		<< std::get<3>(utc_time) << " " << std::get<4>(utc_time) << " " << std::get<5>(utc_time) << std::endl;
 	//}
 	//utc_file.close();
+	
 	// 旋转矩阵
 	std::string direct_path = "../data/NAD.cbr";
 	std::string Ru_path = "../data/NAD.txt";
 	std::string Rj2w_path = "../data/J2000_2_wgs84.txt";
 	Rotation rotation_hanler(Ru_path, direct_path, Rj2w_path, ex_element.att);
-	rotation_hanler.calculate_R_j2w(ex_element.image_time);
+
 	//std::ofstream b2j_file("../inter_result/b2j.txt");
 	//for (const auto& b2j : rotation_hanler.R_b2j) {
 	//	b2j_file << b2j << "\n";
@@ -93,13 +95,25 @@ int main() {
 	//gcp_file.close();
 
 	std::vector<Eigen::Vector3d>ground_points_blh;
-	//std::ofstream gcpblh_file("../inter_result/ground_points_BLH.txt");
 	rotation_hanler.convert_wgs84_to_geodetic(ground_points, ground_points_blh);
-	for (const auto& ground_point : ground_points_blh) {
-		double lat = ground_point.x(), lon = ground_point.y(), alt = ground_point.z();
-		//gcpblh_file << std::fixed << lat << "\t" << lon << "\t" << alt << "\n";
-	}
+	//std::ofstream gcpblh_file("../inter_result/ground_points_BLH.txt");
+	//for (const auto& ground_point : ground_points_blh) {
+	//	double lat = ground_point.x(), lon = ground_point.y(), alt = ground_point.z();
+	//	gcpblh_file << std::fixed << lat << "\t" << lon << "\t" << alt << "\n";
+	//}
 	//gcpblh_file.close();
+
+	double max_x = 0., max_y = 0.;
+	double min_x = ground_points_blh[0].x(), min_y = ground_points_blh[0].y();
+	for (const auto& point : ground_points_blh) {
+		max_x = std::max(max_x, point.x());
+		max_y = std::max(max_y, point.y());
+		min_x = std::min(min_x, point.x());
+		min_y = std::min(min_y, point.y());
+	}
+	//std::ofstream gcp_range("../data/range.txt");
+	//gcp_range << max_x << " " << min_x << " " << max_y << " " << min_y;
+	//gcp_range.close();
 
 	ClassRPC rpc;
 	std::vector<Eigen::Vector2d> image_norm;
@@ -126,19 +140,56 @@ int main() {
 
 	std::string path_range = "../data/range.txt";
 	const char* path_dem = "../data/n35_e114_1arc_v3.tif";
-	// 获取检查点
+	// 获取检查格网点
 	std::vector<Eigen::Vector3d> check_points;
 	PreciseCheck::get_check_grid(path_range, path_dem, check_grid_m, check_grid_n, check_points);
+
+	// 直接读取文件获取
+	//std::ifstream file_check("../data/checkpt.txt");
+	//std::string line;
+	//while (std::getline(file_check, line)) {
+	//	std::istringstream iss(line);
+	//	double B, L, H;
+	//	if (!(iss >> B >> L >> H)) {
+	//		std::cerr << "Error parsing line:" << line << std::endl;
+	//		continue;
+	//	}
+	//	check_points.push_back(Eigen::Vector3d(B, L, H));
+	//}
+	//file_check.close();
+
+
+	std::ofstream check_file("../inter_result/check_grid.txt");
+	for (const auto& check_point : check_points) {
+		check_file << check_point.transpose() << "\n";
+	}
+	check_file.close();
+
 	// 转为wgs84坐标
 	std::vector<Eigen::Vector3d>check_Ptswgs;
 	rotation_hanler.convert_geodetic_to_wgs84(check_points, check_Ptswgs);
-	// 利用严格模型计算检查点
+
+	std::ofstream checkwgs_file("../inter_result/check_grid_wgs.txt");
+	for (const auto& check_point : check_Ptswgs) {
+		checkwgs_file << check_point.transpose() << "\n";
+	}
+	checkwgs_file.close();
+
+
+	// 利用严格模型计算有效检查点（像方与物方）
 	std::vector<Eigen::Vector2d> check_image;
 	std::vector<Eigen::Vector3d> check_ground;
-	rpc.check(check_Ptswgs, ex_element.gps, rotation_hanler.R_j2w, rotation_hanler.R_b2j, rotation_hanler.ux, check_image, check_ground);
+	rpc.generate_checkPts(check_Ptswgs, ex_element.gps, rotation_hanler.R_j2w, rotation_hanler.R_b2j, rotation_hanler.ux, check_image, check_ground);
 	// 转为大地坐标BLH
 	std::vector<Eigen::Vector3d>check_groundBLH;
 	rotation_hanler.convert_wgs84_to_geodetic(check_ground, check_groundBLH);
+
+	std::ofstream valid_check_file("../inter_result/valid_check_grid.txt");
+	for (const auto& check_point : check_groundBLH) {
+		valid_check_file << check_point.transpose() << "\n";
+	}
+	valid_check_file.close();
+
 	// 标准化
 	std::vector<Eigen::Vector2d> check_image_norm;
 	std::vector<Eigen::Vector3d> check_ground_norm;

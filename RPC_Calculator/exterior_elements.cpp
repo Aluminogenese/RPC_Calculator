@@ -2,7 +2,7 @@
 #include <iomanip>
 ExteriorElements::ExteriorElements(const std::string& attDataPath, const std::string& gpsDataPath, const std::string& imgTimePath) {
     // 存放读入的时间标签文件 RelLine Time deltaTime
-    //std::vector<std::tuple<int, double, double>> image_time;
+    std::vector<std::tuple<int, double, double>> image_time;
     // 存放读入的gps数据文件 timeCode dateTime PX PY PZ VX VY VZ
     std::vector<std::tuple<double, std::string, double, double, double, double, double, double>> gps_data;
     // 存放读入的姿态数据文件 timeCode dateTime roll pitch yaw roll_velocity pitch_velocity yaw_velocity q1 q2 q3 q4 
@@ -191,22 +191,27 @@ void ExteriorElements::att_interpolate(const std::vector<std::tuple<int, double,
         double t1 = std::get<0>(attData[index + 1]);
         Eigen::Vector4d q0(std::get<8>(attData[index]), std::get<9>(attData[index]), std::get<10>(attData[index]), std::get<11>(attData[index]));
         Eigen::Vector4d q1(std::get<8>(attData[index + 1]), std::get<9>(attData[index + 1]), std::get<10>(attData[index + 1]), std::get<11>(attData[index + 1]));
-        Eigen::Vector4d qt;
-        double tq = q0.dot(q1);
-        //if (std::abs(1 - std::abs(tq)) < 0.001) {
-        if (std::abs(tq) == 1) {
-            qt = q0 * (t1 - t) / (t1 - t0) + q1 * (t - t0) / (t1 - t0);
-        }
-        else {
-            if (tq < 0) {
-                q0 = -q0;
-            }
-            double theta = acos(tq);
-            double eta0 = sin(theta * (t1 - t) / (t1 - t0)) / sin(theta);
-            double eta1 = sin(theta * (t - t0) / (t1 - t0)) / sin(theta);
-            qt = eta0 * q0 + eta1 * q1;
-        }
-        att.push_back(qt);
+        //Eigen::Vector4d qt;
+
+        Eigen::Quaterniond Q0(q0);
+        Eigen::Quaterniond Q1(q1);
+        Eigen::Quaterniond Qt = Q0.slerp((t - t0) / (t1 - t0), Q1);
+        att.push_back(Qt.coeffs());
+        //double tq = q0.dot(q1);
+        ////if (std::abs(1 - std::abs(tq)) < 0.001) {
+        //if (std::abs(tq) == 1) {
+        //    qt = q0 * (t1 - t) / (t1 - t0) + q1 * (t - t0) / (t1 - t0);
+        //}
+        //else {
+        //    if (tq < 0) {
+        //        q0 = -q0;
+        //    }
+        //    double theta = acos(tq);
+        //    double eta0 = sin(theta * (t1 - t) / (t1 - t0)) / sin(theta);
+        //    double eta1 = sin(theta * (t - t0) / (t1 - t0)) / sin(theta);
+        //    qt = eta0 * q0 + eta1 * q1;
+        //}
+        //att.push_back(qt);
     }
 }
 
